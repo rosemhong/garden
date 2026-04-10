@@ -4,7 +4,8 @@
       "Bash(npm install:*)",
       "Bash(node -e \"require\\('./node_modules/tailwindcss/package.json'\\)\")",
       "Bash(node -e \"require\\('./node_modules/@tailwindcss/vite/package.json'\\)\")",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(grep -E \"^[A-Za-z][A-Za-z0-9_]+$\")"
     ]
   }
 }

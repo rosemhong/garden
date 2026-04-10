@@ -7,7 +7,8 @@ import PlantModel from './PlantModel'
 const CATEGORIES = ['Coding', 'System Design', 'Behavioral']
 
 // Y anchor (world units) at the top of each plant level — card bottom aligns here
-const CARD_ANCHOR_Y = [0.32, 0.52, 1.02, 1.12]
+// Level 3 is now a full tree (~1.1 units tall), so card anchors higher
+const CARD_ANCHOR_Y = [0.32, 0.52, 1.05, 1.60]
 
 function fmtSecs(s) {
   if (!s || s === 0) return '—'
@@ -44,10 +45,12 @@ export default function Tile({
   const colors     = isToday ? GROUND_TODAY[gLevel] : GROUND[gLevel]
 
   // Deterministic per-tile variation — organic, hand-placed look
-  const { tileRot, tileH } = useMemo(() => ({
-    tileRot: (((index * 7919) % 100) / 100 - 0.5) * 0.05,
-    tileH:   0.20 + ((index * 6271) % 100 / 100) * 0.03,
-  }), [index])
+  const { tileRot, tileH, plantRot } = useMemo(() => ({
+    tileRot:  (((index * 7919) % 100) / 100 - 0.5) * 0.05,
+    tileH:    0.20 + ((index * 6271) % 100 / 100) * 0.03,
+    // Each plant faces a slightly different direction — no two look grid-aligned
+    plantRot: ((dayNumber || 1) * 2.618) % (Math.PI * 2),
+  }), [index, dayNumber])
 
   const { plantScale } = useSpring({
     plantScale: growthLevel > 0 ? 1 : 0,
@@ -119,7 +122,8 @@ export default function Tile({
 
         {growthLevel > 0 && (
           <animated.group scale={plantScale}>
-            <group ref={plantRef}>
+            {/* plantRot rotates the whole plant around Y — hand-planted look */}
+            <group ref={plantRef} rotation={[0, plantRot, 0]}>
               <PlantModel level={growthLevel} seed={dayNumber} />
             </group>
           </animated.group>

@@ -1,12 +1,45 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrthographicCamera, ContactShadows } from '@react-three/drei'
+import * as THREE from 'three'
 import { supabase } from '../lib/supabaseClient'
 import Tile from './Tile'
+import { getSeason } from './PlantModel'
 
 const SPACING = 1.15
 
-// Orients the orthographic camera toward origin on the first animation frame.
+// ─── Season theme ──────────────────────────────────────────────────────────
+const THEMES = {
+  spring: {
+    bg:      'linear-gradient(170deg, #fef8ee 0%, #ddeee0 100%)',
+    grass:   '#58a04a',
+    ambient: '#fff8e4',
+    sun:     '#ffd070',
+  },
+  summer: {
+    bg:      'linear-gradient(170deg, #fef5e4 0%, #cce8cc 100%)',
+    grass:   '#48a038',
+    ambient: '#fff8e0',
+    sun:     '#ffe080',
+  },
+  autumn: {
+    bg:      'linear-gradient(170deg, #fef0dc 0%, #e8d8b0 100%)',
+    grass:   '#7a8040',
+    ambient: '#ffe8cc',
+    sun:     '#ffa840',
+  },
+  winter: {
+    bg:      'linear-gradient(170deg, #ecf4f8 0%, #d8e8f0 100%)',
+    grass:   '#a8c0cc',
+    ambient: '#e8f0f8',
+    sun:     '#d8e8f4',
+  },
+}
+
+const SEASON = getSeason(new Date().getMonth())
+const THEME  = THEMES[SEASON]
+
+// ─── Camera ────────────────────────────────────────────────────────────────
 function CameraInit() {
   const done = useRef(false)
   useFrame(({ camera }) => {
@@ -19,6 +52,116 @@ function CameraInit() {
   return null
 }
 
+// ─── Vertex-displaced grass terrain ────────────────────────────────────────
+function GrassTerrain({ width, depth, color }) {
+  const geo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(width, depth, 40, 40)
+    g.rotateX(-Math.PI / 2)
+    const pos = g.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      const x  = pos.getX(i)
+      const z  = pos.getZ(i)
+      const nx = x / (width  / 2)
+      const nz = z / (depth  / 2)
+      const edgeFactor = Math.pow(Math.min(Math.sqrt(nx * nx + nz * nz), 1.0), 1.8)
+      const bump =
+        Math.sin(x * 2.20 + 0.60) * Math.cos(z * 1.80 - 0.30) * 0.022 +
+        Math.sin(x * 4.10 - 1.50) * Math.cos(z * 3.30 + 0.90) * 0.010 +
+        Math.sin(x * 1.10 + 1.20) * Math.cos(z * 0.90 - 0.70) * 0.016
+      pos.setY(i, bump * edgeFactor)
+    }
+    pos.needsUpdate = true
+    g.computeVertexNormals()
+    return g
+  }, [width, depth])
+
+  return (
+    <mesh geometry={geo} receiveShadow position={[0, -0.02, 0]}>
+      <meshLambertMaterial color={color} />
+    </mesh>
+  )
+}
+
+// ─── Scatter decorations ────────────────────────────────────────────────────
+// Deterministic LCG so layout never shifts
+function lcg(seed) {
+  return ((seed * 1664525 + 1013904223) >>> 0)
+}
+
+// Small lumpy rocks using dodecahedron (naturally rough-looking)
+function ProceduralRock({ position, scale, rotY }) {
+  return (
+    <mesh
+      position={position}
+      rotation={[0.2, rotY, 0.1]}
+      scale={[scale, scale * 0.75, scale]}
+      castShadow
+      receiveShadow
+    >
+      <dodecahedronGeometry args={[1, 0]} />
+      <meshLambertMaterial color={SEASON === 'winter' ? '#b8ccd8' : '#8a7a6a'} />
+    </mesh>
+  )
+}
+
+// Thin box fan grass tufts
+function GrassTuft({ position, rotY }) {
+  const blades = [-0.04, 0, 0.04]
+  const col = SEASON === 'winter' ? '#a0b8c4' : SEASON === 'autumn' ? '#8a8840' : '#5aaa48'
+  return (
+    <group position={position} rotation={[0, rotY, 0]}>
+      {blades.map((x, i) => (
+        <mesh
+          key={i}
+          position={[x, 0.055, (i - 1) * 0.018]}
+          rotation={[0, 0, (i - 1) * 0.28]}
+        >
+          <boxGeometry args={[0.014, 0.11, 0.014]} />
+          <meshLambertMaterial color={col} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// Scatter props on the border strip of the island (outside tile grid)
+function ScatterDecor({ islandW, islandD, gridW, gridD }) {
+  const props = useMemo(() => {
+    const items = []
+    let s = 42317
+    const margin = 0.55  // min distance from tile grid edge
+
+    for (let i = 0; i < 40; i++) {
+      s = lcg(s); const rawX = (s / 0xFFFFFFFF - 0.5) * (islandW - 0.3)
+      s = lcg(s); const rawZ = (s / 0xFFFFFFFF - 0.5) * (islandD - 0.3)
+      s = lcg(s); const rotY = (s / 0xFFFFFFFF) * Math.PI * 2
+      s = lcg(s); const kind = s % 3  // 0=rock, 1=tuft, 2=tuft
+
+      // Skip if inside the tile grid (plus margin)
+      if (
+        Math.abs(rawX) < gridW / 2 + margin &&
+        Math.abs(rawZ) < gridD / 2 + margin
+      ) continue
+
+      s = lcg(s)
+      const sc = 0.04 + (s / 0xFFFFFFFF) * 0.05
+      items.push({ x: rawX, z: rawZ, rotY, kind, scale: sc })
+    }
+    return items
+  }, [islandW, islandD, gridW, gridD])
+
+  return (
+    <group>
+      {props.map((p, i) =>
+        p.kind === 0
+          ? <ProceduralRock key={i} position={[p.x, 0, p.z]} scale={p.scale} rotY={p.rotY} />
+          : <GrassTuft      key={i} position={[p.x, 0, p.z]} rotY={p.rotY} />
+      )}
+    </group>
+  )
+}
+
+// ─── Scene ─────────────────────────────────────────────────────────────────
 function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay, onTileClick }) {
   const rawSlots   = startDay + daysInMonth
   const totalSlots = Math.ceil(rawSlots / 7) * 7
@@ -61,58 +204,46 @@ function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay, 
     )
   }
 
-  // Island base covers the full grid with comfortable margin
-  const islandW = 8.6
+  const islandW = 8.8
   const islandD = numRows * SPACING + 1.8
+  const gridW   = 7 * SPACING
+  const gridD   = numRows * SPACING
 
   return (
     <>
-      <OrthographicCamera
-        makeDefault
-        position={[10, 10, 10]}
-        zoom={55}
-        near={0.1}
-        far={1000}
-      />
+      <OrthographicCamera makeDefault position={[10, 10, 10]} zoom={55} near={0.1} far={1000} />
       <CameraInit />
 
-      {/* Golden-hour ambient — warm cream */}
-      <ambientLight intensity={0.88} color="#fff8e4" />
+      <ambientLight intensity={0.88} color={THEME.ambient} />
 
-      {/* Primary directional — warm golden sunlight from upper-right */}
       <directionalLight
         position={[7, 12, 4]}
         intensity={1.30}
-        color="#ffd070"
+        color={THEME.sun}
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
 
-      {/* Soft fill — cool lavender bounce from opposite side */}
+      {/* Warm point light — sunset glow */}
+      <pointLight
+        position={[3, 3, -5]}
+        intensity={0.55}
+        color={SEASON === 'winter' ? '#b0d0e8' : '#ffb060'}
+        distance={20}
+        decay={2}
+      />
+
+      {/* Soft fill from opposite side */}
       <directionalLight
         position={[-5, 4, -6]}
-        intensity={0.30}
-        color="#d0c8f8"
+        intensity={0.28}
+        color={SEASON === 'winter' ? '#c8d8f0' : '#d0c8f8'}
       />
 
-      <ContactShadows
-        position={[0, -0.01, 0]}
-        opacity={0.28}
-        scale={28}
-        blur={2.2}
-        far={2}
-      />
+      <ContactShadows position={[0, 0.01, 0]} opacity={0.32} scale={28} blur={2.5} far={2.5} />
 
-      {/* Floating garden island — grassy base platform */}
-      <mesh position={[0, -0.10, 0]} receiveShadow>
-        <boxGeometry args={[islandW, 0.20, islandD]} />
-        <meshLambertMaterial color="#56904a" />
-      </mesh>
-      {/* Grass top accent */}
-      <mesh position={[0, 0.001, 0]}>
-        <boxGeometry args={[islandW, 0.001, islandD]} />
-        <meshLambertMaterial color="#68a85a" />
-      </mesh>
+      <GrassTerrain width={islandW} depth={islandD} color={THEME.grass} />
+      <ScatterDecor islandW={islandW} islandD={islandD} gridW={gridW} gridD={gridD} />
 
       <group>{items}</group>
     </>
@@ -129,7 +260,7 @@ export default function Garden({ session, tilesVersion, onTileClick }) {
     const year        = now.getFullYear()
     const month       = now.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const startDay    = new Date(year, month, 1).getDay() // 0 = Sun
+    const startDay    = new Date(year, month, 1).getDay()
 
     const mm        = String(month + 1).padStart(2, '0')
     const startDate = `${year}-${mm}-01`
@@ -173,7 +304,7 @@ export default function Garden({ session, tilesVersion, onTileClick }) {
   }, [fetchData, tilesVersion])
 
   return (
-    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(170deg, #fef8ee 0%, #ddeee0 100%)' }}>
+    <div style={{ width: '100%', height: '100%', background: THEME.bg }}>
       <Canvas
         shadows
         gl={{ antialias: true, alpha: true }}
