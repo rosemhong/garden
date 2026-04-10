@@ -1,5 +1,4 @@
-import { Component, Suspense, useMemo } from 'react'
-import { useFBX } from '@react-three/drei'
+import { useMemo } from 'react'
 
 // ─── Season ────────────────────────────────────────────────────────────────
 export function getSeason(month) {
@@ -11,141 +10,20 @@ export function getSeason(month) {
 
 const SEASON = getSeason(new Date().getMonth())
 
-// ─── FBX model map ─────────────────────────────────────────────────────────
-//
-// HOW TO USE:
-//   1. Download "Ultimate Nature Pack" from https://quaternius.com/packs/ultimatenature.html
-//   2. Inside the zip, find the FBX folder.
-//   3. Copy files listed below into  /public/models/nature/
-//   4. Copy the Textures folder to   /public/models/nature/Textures/
-//
-// SCALE NOTE: Quaternius FBX files export from Blender with cm units,
-//   so a 2 m tree arrives as 200 Three.js units. Start with 0.005 and
-//   adjust until plants look right relative to the 0.9-unit-wide tile.
-//
-// EXACT FILENAMES: open your downloaded zip and match the real names —
-//   update the strings below. Unrecognised paths fall back to the
-//   procedural models silently (ErrorBoundary catches 404s).
-
-const B = '/models/nature'
-
-const MODELS = {
-  spring: {
-    1: [
-      { path: `${B}/Grass.fbx`,             scale: 0.005 },
-      { path: `${B}/Flower.fbx`,            scale: 0.005 },
-      { path: `${B}/Mushroom.fbx`,          scale: 0.004 },
-    ],
-    2: [
-      { path: `${B}/Bush.fbx`,              scale: 0.005 },
-      { path: `${B}/BushBerries.fbx`,       scale: 0.005 },
-    ],
-    3: [
-      { path: `${B}/BirchTree.fbx`,         scale: 0.005 },
-      { path: `${B}/OakTree.fbx`,           scale: 0.005 },
-      { path: `${B}/WillowTree.fbx`,        scale: 0.005 },
-    ],
-  },
-  summer: {
-    1: [
-      { path: `${B}/Grass.fbx`,             scale: 0.005 },
-      { path: `${B}/GrassLong.fbx`,         scale: 0.005 },
-      { path: `${B}/Flower.fbx`,            scale: 0.005 },
-    ],
-    2: [
-      { path: `${B}/Bush.fbx`,              scale: 0.005 },
-      { path: `${B}/BushLarge.fbx`,         scale: 0.005 },
-    ],
-    3: [
-      { path: `${B}/OakTree.fbx`,           scale: 0.005 },
-      { path: `${B}/BirchTree.fbx`,         scale: 0.005 },
-      { path: `${B}/MapleTree.fbx`,         scale: 0.005 },
-    ],
-  },
-  autumn: {
-    1: [
-      { path: `${B}/Mushroom.fbx`,          scale: 0.004 },
-      { path: `${B}/MushroomRed.fbx`,       scale: 0.004 },
-      { path: `${B}/Stump.fbx`,             scale: 0.005 },
-    ],
-    2: [
-      { path: `${B}/Bush.fbx`,              scale: 0.005 },
-      { path: `${B}/BushBerries.fbx`,       scale: 0.005 },
-    ],
-    3: [
-      { path: `${B}/OakTree.fbx`,           scale: 0.005 },
-      { path: `${B}/BirchTree.fbx`,         scale: 0.005 },
-      { path: `${B}/MapleTree.fbx`,         scale: 0.005 },
-    ],
-  },
-  winter: {
-    1: [
-      { path: `${B}/Rock.fbx`,              scale: 0.005 },
-      { path: `${B}/RockSmall.fbx`,         scale: 0.004 },
-      { path: `${B}/Stump.fbx`,             scale: 0.005 },
-    ],
-    2: [
-      { path: `${B}/BushSnow.fbx`,          scale: 0.005 },
-      { path: `${B}/PineTreeSmall.fbx`,     scale: 0.005 },
-    ],
-    3: [
-      { path: `${B}/PineTreeSnow.fbx`,      scale: 0.005 },
-      { path: `${B}/BirchTreeSnow.fbx`,     scale: 0.005 },
-      { path: `${B}/OakTreeSnow.fbx`,       scale: 0.005 },
-    ],
-  },
-}
-
-// ─── FBX loader ────────────────────────────────────────────────────────────
-// useFBX returns a THREE.Group; we clone it so each tile is independent.
-function FBXModel({ path, scale }) {
-  const fbx  = useFBX(path)
-  const clone = useMemo(() => {
-    const c = fbx.clone(true)
-    c.traverse(child => {
-      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true }
-    })
-    return c
-  }, [fbx])
-  return <primitive object={clone} scale={scale} />
-}
-
-class ModelBoundary extends Component {
-  constructor(props) { super(props); this.state = { failed: false } }
-  static getDerivedStateFromError() { return { failed: true } }
-  render() { return this.state.failed ? this.props.fallback : this.props.children }
-}
-
-function WithModel({ path, scale, fallback }) {
-  return (
-    <ModelBoundary key={path} fallback={fallback}>
-      <Suspense fallback={fallback}>
-        <FBXModel path={path} scale={scale} />
-      </Suspense>
-    </ModelBoundary>
-  )
-}
-
-// ─── Procedural fallbacks (season-aware) ───────────────────────────────────
-// Shown until real FBX files are present. Each season looks distinct.
-
 // ─── AC-style stylized flora ───────────────────────────────────────────────
 
 // L1 spring/summer: plump carrot with leafy tufts
 function PlumpCarrot() {
   return (
     <group>
-      {/* Plump orange body */}
       <mesh position={[0, 0.27, 0]} scale={[1, 1.5, 1]}>
         <sphereGeometry args={[0.058, 8, 6]} />
         <meshLambertMaterial color="#e07a42" />
       </mesh>
-      {/* Tapered tip */}
       <mesh position={[0, 0.185, 0]}>
         <cylinderGeometry args={[0.016, 0.004, 0.09, 5]} />
         <meshLambertMaterial color="#c86030" />
       </mesh>
-      {/* Three leafy blob tufts */}
       <mesh position={[  0.000, 0.370,  0.000]} rotation={[-0.4,  0,     0   ]} scale={[1, 0.45, 1]}>
         <sphereGeometry args={[0.044, 6, 5]} />
         <meshLambertMaterial color="#7aaa5a" />
@@ -168,19 +46,16 @@ function BlobFlower() {
   const PETAL_COLS   = ['#e8b8b0', '#f0c8b8', '#e8b0a8', '#f0bcac', '#e0b0a0']
   return (
     <group>
-      {/* Stem */}
       <mesh position={[0, 0.22, 0]}>
         <cylinderGeometry args={[0.010, 0.014, 0.24, 5]} />
         <meshLambertMaterial color="#6a9450" />
       </mesh>
-      {/* Five rounded petals */}
       {PETAL_ANGLES.map((a, i) => (
         <mesh key={i} position={[Math.sin(a) * 0.096, 0.40, Math.cos(a) * 0.096]} scale={[1, 0.55, 1]}>
           <sphereGeometry args={[0.074, 6, 5]} />
           <meshLambertMaterial color={PETAL_COLS[i]} />
         </mesh>
       ))}
-      {/* Yolk center */}
       <mesh position={[0, 0.42, 0]}>
         <sphereGeometry args={[0.052, 7, 6]} />
         <meshLambertMaterial color="#f0d870" />
@@ -188,6 +63,8 @@ function BlobFlower() {
     </group>
   )
 }
+
+// ─── Shared shapes ─────────────────────────────────────────────────────────
 
 function Bush({ trunk, leaves, bud = null }) {
   return (
@@ -273,7 +150,7 @@ function Tree({ trunk, canopy, accent = null }) {
   )
 }
 
-// ── Autumn-specific ────────────────────────────────────────────────────────
+// ─── Autumn-specific ───────────────────────────────────────────────────────
 const MUSHROOM_CAPS = ['#b86840', '#c87848', '#a85830']
 
 function AutumnMushrooms() {
@@ -300,7 +177,7 @@ function AutumnMushrooms() {
   )
 }
 
-// ── Winter-specific ────────────────────────────────────────────────────────
+// ─── Winter-specific ───────────────────────────────────────────────────────
 function WinterSprout() {
   return (
     <group>
@@ -316,7 +193,6 @@ function WinterSprout() {
         <cylinderGeometry args={[0.008, 0.008, 0.10, 4]} />
         <meshLambertMaterial color="#7a6050" />
       </mesh>
-      {/* Snow dot */}
       <mesh position={[0, 0.345, 0]}>
         <sphereGeometry args={[0.026, 5, 4]} />
         <meshLambertMaterial color="#e8f4f8" />
@@ -340,7 +216,6 @@ function WinterBush() {
         <sphereGeometry args={[0.13, 6, 4]} />
         <meshLambertMaterial color="#b8ccd4" />
       </mesh>
-      {/* Snow cap */}
       <mesh position={[0, 0.50, 0]} scale={[0.90, 0.34, 0.90]}>
         <sphereGeometry args={[0.18, 6, 4]} />
         <meshLambertMaterial color="#eaf2f6" />
@@ -349,7 +224,6 @@ function WinterBush() {
   )
 }
 
-// Layered-sphere snow tree — wide at base, tapering to a point
 const SNOW_LAYERS = [
   { y: 0.50, r: 0.28, c: '#dce8ec' },
   { y: 0.68, r: 0.22, c: '#e4eef2' },
@@ -375,7 +249,7 @@ function WinterTree() {
   )
 }
 
-// ─── Seasonal colour palettes — muted, milky, desaturated ─────────────────
+// ─── Colour palettes ───────────────────────────────────────────────────────
 const PAL = {
   spring: {
     bush:   { trunk: '#7a6048', leaves: ['#78a860', '#88b870', '#6a9850'], bud: '#e8c0b0' },
@@ -391,24 +265,26 @@ const PAL = {
   },
 }
 
-// ─── Per-level procedural fallback ─────────────────────────────────────────
-function ProceduralL1() {
+// ─── Per-level plants ──────────────────────────────────────────────────────
+function PlantL1() {
   if (SEASON === 'winter') return <WinterSprout />
   if (SEASON === 'autumn') return <AutumnMushrooms />
   return <PlumpCarrot />
 }
-function ProceduralL2() {
+
+function PlantL2() {
   if (SEASON === 'winter') return <WinterBush />
   if (SEASON === 'autumn') return <Bush {...PAL.autumn.bush} />
   return <BlobFlower />
 }
+
 const L3_SPOTS = [
   { dx:  0.00, dz:  0.00, rot: 0,    sc: 1.00 },
   { dx: -0.22, dz:  0.13, rot: 2.10, sc: 0.72 },
   { dx:  0.19, dz: -0.18, rot: 3.80, sc: 0.78 },
 ]
 
-function ProceduralL3() {
+function PlantL3() {
   if (SEASON === 'winter') {
     return (
       <group>
@@ -433,25 +309,9 @@ function ProceduralL3() {
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────
-export default function PlantModel({ level, seed = 0 }) {
-  const variants = MODELS[SEASON]
-
-  if (level === 1) {
-    const m = variants[1][seed % variants[1].length]
-    return <WithModel path={m.path} scale={m.scale} fallback={<ProceduralL1 />} />
-  }
-  if (level === 2) {
-    const m = variants[2][seed % variants[2].length]
-    return <WithModel path={m.path} scale={m.scale} fallback={<ProceduralL2 />} />
-  }
-  if (level === 3) {
-    const m = variants[3][seed % variants[3].length]
-    return <WithModel path={m.path} scale={m.scale} fallback={<ProceduralL3 seed={seed} />} />
-  }
+export default function PlantModel({ level }) {
+  if (level === 1) return <PlantL1 />
+  if (level === 2) return <PlantL2 />
+  if (level === 3) return <PlantL3 />
   return null
 }
-
-// Kick off FBX fetches as soon as the module loads
-Object.values(MODELS[SEASON]).flat().forEach(({ path }) => {
-  try { useFBX.preload(path) } catch (_) {}
-})
