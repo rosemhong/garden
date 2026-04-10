@@ -129,28 +129,62 @@ function WithModel({ path, scale, fallback }) {
 // ─── Procedural fallbacks (season-aware) ───────────────────────────────────
 // Shown until real FBX files are present. Each season looks distinct.
 
-// Generic reusable shapes
-function Sprout({ stem, leaves, bud = null }) {
+// ─── AC-style stylized flora ───────────────────────────────────────────────
+
+// L1 spring/summer: plump carrot with leafy tufts
+function PlumpCarrot() {
   return (
     <group>
-      <mesh position={[0, 0.265, 0]}>
-        <cylinderGeometry args={[0.013, 0.019, 0.13, 5]} />
-        <meshLambertMaterial color={stem} />
+      {/* Plump orange body */}
+      <mesh position={[0, 0.27, 0]} scale={[1, 1.5, 1]}>
+        <sphereGeometry args={[0.058, 8, 6]} />
+        <meshLambertMaterial color="#e07a42" />
       </mesh>
-      <mesh position={[-0.072, 0.342, 0.014]} rotation={[0.22, 0, 0.58]} scale={[1, 0.38, 1.28]}>
-        <sphereGeometry args={[0.082, 7, 5]} />
-        <meshLambertMaterial color={leaves[0]} />
+      {/* Tapered tip */}
+      <mesh position={[0, 0.185, 0]}>
+        <cylinderGeometry args={[0.016, 0.004, 0.09, 5]} />
+        <meshLambertMaterial color="#c86030" />
       </mesh>
-      <mesh position={[0.072, 0.342, -0.014]} rotation={[-0.22, 0, -0.58]} scale={[1, 0.38, 1.28]}>
-        <sphereGeometry args={[0.082, 7, 5]} />
-        <meshLambertMaterial color={leaves[1]} />
+      {/* Three leafy blob tufts */}
+      <mesh position={[  0.000, 0.370,  0.000]} rotation={[-0.4,  0,     0   ]} scale={[1, 0.45, 1]}>
+        <sphereGeometry args={[0.044, 6, 5]} />
+        <meshLambertMaterial color="#7aaa5a" />
       </mesh>
-      {bud && (
-        <mesh position={[0.06, 0.385, 0.02]}>
-          <sphereGeometry args={[0.022, 5, 4]} />
-          <meshLambertMaterial color={bud} />
+      <mesh position={[-0.032, 0.355,  0.020]} rotation={[-0.2,  0.30,  0.40]} scale={[1, 0.45, 1]}>
+        <sphereGeometry args={[0.038, 6, 5]} />
+        <meshLambertMaterial color="#8ab86a" />
+      </mesh>
+      <mesh position={[ 0.032, 0.358, -0.018]} rotation={[-0.2, -0.30, -0.40]} scale={[1, 0.45, 1]}>
+        <sphereGeometry args={[0.036, 6, 5]} />
+        <meshLambertMaterial color="#72a052" />
+      </mesh>
+    </group>
+  )
+}
+
+// L2 spring/summer: five-petal blob flower
+function BlobFlower() {
+  const PETAL_ANGLES = [0, 1, 2, 3, 4].map(i => (i / 5) * Math.PI * 2)
+  const PETAL_COLS   = ['#e8b8b0', '#f0c8b8', '#e8b0a8', '#f0bcac', '#e0b0a0']
+  return (
+    <group>
+      {/* Stem */}
+      <mesh position={[0, 0.22, 0]}>
+        <cylinderGeometry args={[0.010, 0.014, 0.24, 5]} />
+        <meshLambertMaterial color="#6a9450" />
+      </mesh>
+      {/* Five rounded petals */}
+      {PETAL_ANGLES.map((a, i) => (
+        <mesh key={i} position={[Math.sin(a) * 0.096, 0.40, Math.cos(a) * 0.096]} scale={[1, 0.55, 1]}>
+          <sphereGeometry args={[0.074, 6, 5]} />
+          <meshLambertMaterial color={PETAL_COLS[i]} />
         </mesh>
-      )}
+      ))}
+      {/* Yolk center */}
+      <mesh position={[0, 0.42, 0]}>
+        <sphereGeometry args={[0.052, 7, 6]} />
+        <meshLambertMaterial color="#f0d870" />
+      </mesh>
     </group>
   )
 }
@@ -240,7 +274,7 @@ function Tree({ trunk, canopy, accent = null }) {
 }
 
 // ── Autumn-specific ────────────────────────────────────────────────────────
-const MUSHROOM_CAPS = ['#c84820', '#e05828', '#b83818']
+const MUSHROOM_CAPS = ['#b86840', '#c87848', '#a85830']
 
 function AutumnMushrooms() {
   const cluster = [
@@ -341,22 +375,19 @@ function WinterTree() {
   )
 }
 
-// ─── Seasonal colour palettes ──────────────────────────────────────────────
+// ─── Seasonal colour palettes — muted, milky, desaturated ─────────────────
 const PAL = {
   spring: {
-    sprout: { stem: '#4e8c40', leaves: ['#6ec452', '#78d05c'], bud: '#ffb8c8' },
-    bush:   { trunk: '#4a7e38', leaves: ['#3a9e3a', '#44aa44', '#4cb84c'], bud: '#ffcc40' },
-    tree:   { trunk: '#5a7a3a', canopy: ['#88d864', '#78cc58', '#8ad86c'], accent: '#ffb8c8' },
+    bush:   { trunk: '#7a6048', leaves: ['#78a860', '#88b870', '#6a9850'], bud: '#e8c0b0' },
+    tree:   { trunk: '#7a6048', canopy: ['#78aa68', '#6a9a58', '#88b878'], accent: '#e8c0c8' },
   },
   summer: {
-    sprout: { stem: '#4e8c40', leaves: ['#6ec452', '#78d05c'], bud: null },
-    bush:   { trunk: '#4a7e38', leaves: ['#3a9e3a', '#44aa44', '#4cb84c'], bud: '#f0cc30' },
-    tree:   { trunk: '#4a6830', canopy: ['#3a9a30', '#42a838', '#4aaa40'], accent: null },
+    bush:   { trunk: '#7a6048', leaves: ['#70a058', '#80ae68', '#689848'], bud: '#e0c870' },
+    tree:   { trunk: '#6a5838', canopy: ['#6a9e58', '#5c9048', '#78a860'], accent: null },
   },
   autumn: {
-    // L1 → AutumnMushrooms, L2/L3 use Bush/Tree with warm palette
-    bush:   { trunk: '#6b4428', leaves: ['#e07828', '#cc6018', '#d87030'], bud: null },
-    tree:   { trunk: '#6b4428', canopy: ['#e8742a', '#cc5a18', '#e8a030'], accent: null },
+    bush:   { trunk: '#8a6040', leaves: ['#c87840', '#b06030', '#c08040'], bud: null },
+    tree:   { trunk: '#8a6040', canopy: ['#c07838', '#a86028', '#c89040'], accent: null },
   },
 }
 
@@ -364,12 +395,12 @@ const PAL = {
 function ProceduralL1() {
   if (SEASON === 'winter') return <WinterSprout />
   if (SEASON === 'autumn') return <AutumnMushrooms />
-  return <Sprout {...PAL[SEASON].sprout} />
+  return <PlumpCarrot />
 }
 function ProceduralL2() {
   if (SEASON === 'winter') return <WinterBush />
-  const p = PAL[SEASON]
-  return <Bush {...p.bush} />
+  if (SEASON === 'autumn') return <Bush {...PAL.autumn.bush} />
+  return <BlobFlower />
 }
 const L3_SPOTS = [
   { dx:  0.00, dz:  0.00, rot: 0,    sc: 1.00 },

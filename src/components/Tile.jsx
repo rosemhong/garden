@@ -18,20 +18,19 @@ function fmtSecs(s) {
   return `${m}m`
 }
 
-// Ground colour progression: warm earth → fresh grass
+// L0 = warm dirt. L1–L3 = progressively lush green.
 const GROUND = [
-  { side: '#9a7248', top: '#b08860' },  // 0 — bare warm earth
-  { side: '#6aaa48', top: '#7ebe58' },  // 1 — fresh spring green
-  { side: '#4e9840', top: '#60ac50' },  // 2 — vibrant garden green
-  { side: '#3a8c38', top: '#4ca048' },  // 3 — lush rich green
+  { side: '#887c72' },  // 0 — bare dirt, muted grey-brown
+  { side: '#8aaa6e' },  // 1 — fresh sage
+  { side: '#7a9e5e' },  // 2 — garden green
+  { side: '#6a9050' },  // 3 — lush deep green
 ]
 const GROUND_TODAY = [
-  { side: '#8e6640', top: '#a47850' },
-  { side: '#5e9e42', top: '#72b452' },
-  { side: '#469040', top: '#58a44e' },
-  { side: '#368438', top: '#489848' },
+  { side: '#948880' },  // 0 — dirt, today highlight
+  { side: '#98b87c' },  // 1
+  { side: '#88ac6c' },  // 2
+  { side: '#789e5c' },  // 3
 ]
-const GHOST_COLOR = '#ccc8c0'
 
 export default function Tile({
   position, dayNumber, date, growthLevel,
@@ -58,8 +57,14 @@ export default function Tile({
     delay: index * 18,
   })
 
+  // "boing" — overshoots and settles when hovering a grown tile
+  const { boingScale } = useSpring({
+    boingScale: hovered && growthLevel > 0 ? 1.22 : 1.0,
+    config: { tension: 650, friction: 11, mass: 0.8 },
+  })
+
   const { yLift } = useSpring({
-    yLift: hovered ? 0.18 : 0,
+    yLift: hovered ? 0.06 : 0,
     config: { tension: 320, friction: 22 },
   })
 
@@ -70,14 +75,7 @@ export default function Tile({
     plantRef.current.rotation.x = Math.cos(t * 0.40 + swayOffset) * 0.018
   })
 
-  if (isGhost) {
-    return (
-      <mesh position={[position[0], 0.075, position[2]]}>
-        <boxGeometry args={[0.88, 0.15, 0.88]} />
-        <meshLambertMaterial color={GHOST_COLOR} transparent opacity={0.10} />
-      </mesh>
-    )
-  }
+  if (isGhost) return null
 
   const dateLabel = date
     ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
@@ -114,18 +112,13 @@ export default function Tile({
           <meshLambertMaterial color={colors.side} />
         </RoundedBox>
 
-        {/* Top-face accent: lighter shade of same growth colour */}
-        <mesh position={[0, tileH + 0.001, 0]} rotation={[0, tileRot, 0]}>
-          <boxGeometry args={[0.90, 0.001, 0.90]} />
-          <meshLambertMaterial color={colors.top} />
-        </mesh>
-
         {growthLevel > 0 && (
           <animated.group scale={plantScale}>
-            {/* plantRot rotates the whole plant around Y — hand-planted look */}
-            <group ref={plantRef} rotation={[0, plantRot, 0]}>
-              <PlantModel level={growthLevel} seed={dayNumber} />
-            </group>
+            <animated.group scale={boingScale}>
+              <group ref={plantRef} rotation={[0, plantRot, 0]}>
+                <PlantModel level={growthLevel} seed={dayNumber} />
+              </group>
+            </animated.group>
           </animated.group>
         )}
 
@@ -155,30 +148,32 @@ export default function Tile({
 
 const card = {
   wrap: {
-    background:   '#ffffff',
-    borderRadius: 12,
-    padding:      '10px 14px',
-    boxShadow:    '0 6px 24px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.06)',
-    border:       '1px solid #e8ecf0',
-    minWidth:     220,
-    fontFamily:   '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    userSelect:   'none',
+    background:           'rgba(255, 248, 236, 0.96)',
+    backdropFilter:       'blur(14px)',
+    WebkitBackdropFilter: 'blur(14px)',
+    borderRadius:          24,
+    padding:              '14px 18px',
+    boxShadow:            '0 10px 36px rgba(100,72,48,0.16), 0 2px 8px rgba(100,72,48,0.08)',
+    border:               '1px solid rgba(180, 152, 120, 0.22)',
+    minWidth:              200,
+    fontFamily:           '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    userSelect:           'none',
   },
   date: {
-    margin:        '0 0 9px',
+    margin:        '0 0 10px',
     fontSize:      10,
     fontWeight:    700,
-    color:         '#94a3b8',
-    letterSpacing: '0.1em',
+    color:         '#a09070',
+    letterSpacing: '0.12em',
     textTransform: 'uppercase',
   },
   row: {
     display:        'flex',
     justifyContent: 'space-between',
     alignItems:     'center',
-    gap:            10,
-    marginBottom:   5,
+    gap:            12,
+    marginBottom:   6,
   },
-  catLabel: { fontSize: 12, color: '#64748b' },
-  catValue: { fontSize: 12, fontWeight: 700, color: '#1e293b' },
+  catLabel: { fontSize: 12, color: '#8a7060' },
+  catValue: { fontSize: 13, fontWeight: 700, color: '#4a3828' },
 }
