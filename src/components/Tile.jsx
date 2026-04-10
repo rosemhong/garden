@@ -32,29 +32,45 @@ const GROUND_TODAY = [
   { side: '#7aa070' },  // 3
 ]
 
-// ─── Tile pebbles ──────────────────────────────────────────────────────────
-function lcg(n) { return ((n * 1664525 + 1013904223) >>> 0) }
+// ─── Tile stones ───────────────────────────────────────────────────────────
+// Proper bit-mixing hash — every index produces fully independent output,
+// no correlation between neighbours (unlike LCG with sequential seeds).
+function h32(n) {
+  n = Math.imul(n ^ (n >>> 15), 0xd168aaad)
+  n = Math.imul(n ^ (n >>> 15), 0xaf723597)
+  return (n ^ (n >>> 15)) >>> 0
+}
 
-const PEBBLE_COLS = ['#929292', '#868686', '#9e9e9e', '#7e7e7e', '#aaaaaa']
+const STONE_COLS = ['#929292', '#868686', '#9e9e9e', '#7e7e7e', '#aaaaaa']
 
-function TilePebbles({ tileH, index }) {
+function TilePebbles({ tileH, dayNumber }) {
   const stones = useMemo(() => {
-    let s = (index + 1) * 7919
-    s = lcg(s)
-    if (s % 100 < 45) return []           // ~45% of tiles stay bare
-    s = lcg(s)
-    const count = 1 + (s % 3)             // 1–3 stones
+    // Stratified: one stone winner per every 3-day bucket — clustering is impossible.
+    // dayNumber 1–31 → ~10 buckets, each picks exactly 1 winner inside its 3-day span.
+    const BUCKET      = 3
+    const bucket      = Math.floor((dayNumber - 1) / BUCKET)
+    const bucketStart = bucket * BUCKET + 1
+    const winner      = bucketStart + (h32(bucket * 2654435761) % BUCKET)
+    if (dayNumber !== winner) return []
+
+    let s = h32(dayNumber * 7654321 + 99)
+    const count = 1 + (s % 2)             // 1–2 stones per winning tile
     const out = []
     for (let i = 0; i < count; i++) {
-      s = lcg(s); const px  = (s / 0xFFFFFFFF - 0.5) * 0.62
-      s = lcg(s); const pz  = (s / 0xFFFFFFFF - 0.5) * 0.62
-      s = lcg(s); const sc  = 0.040 + (s / 0xFFFFFFFF) * 0.042  // 0.04–0.082
-      s = lcg(s); const ry  = (s / 0xFFFFFFFF) * Math.PI * 2
-      s = lcg(s); const col = PEBBLE_COLS[s % PEBBLE_COLS.length]
+      s = h32(s + i * 1000 + 1)
+      const px  = (s / 0xFFFFFFFF - 0.5) * 0.62
+      s = h32(s + 1)
+      const pz  = (s / 0xFFFFFFFF - 0.5) * 0.62
+      s = h32(s + 1)
+      const sc  = 0.038 + (s / 0xFFFFFFFF) * 0.088  // 0.038–0.126
+      s = h32(s + 1)
+      const ry  = (s / 0xFFFFFFFF) * Math.PI * 2
+      s = h32(s + 1)
+      const col = STONE_COLS[s % STONE_COLS.length]
       out.push({ px, pz, sc, ry, col })
     }
     return out
-  }, [index])
+  }, [dayNumber])
 
   if (stones.length === 0) return null
 
@@ -150,7 +166,7 @@ export default function Tile({
           <meshLambertMaterial color={colors.side} />
         </RoundedBox>
 
-        {growthLevel === 0 && <TilePebbles tileH={tileH} index={index} />}
+        {growthLevel === 0 && <TilePebbles tileH={tileH} dayNumber={dayNumber} />}
 
         {growthLevel > 0 && (
           <animated.group scale={plantScale}>
