@@ -20,7 +20,6 @@ function CameraInit() {
 }
 
 function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay, onTileClick }) {
-  // Pad the end so the grid always fills complete 7-column rows
   const rawSlots   = startDay + daysInMonth
   const totalSlots = Math.ceil(rawSlots / 7) * 7
   const numRows    = totalSlots / 7
@@ -62,6 +61,10 @@ function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay, 
     )
   }
 
+  // Island base covers the full grid with comfortable margin
+  const islandW = 8.6
+  const islandD = numRows * SPACING + 1.8
+
   return (
     <>
       <OrthographicCamera
@@ -73,20 +76,43 @@ function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay, 
       />
       <CameraInit />
 
-      <ambientLight intensity={1.0} color="#fff6ee" />
+      {/* Golden-hour ambient — warm cream */}
+      <ambientLight intensity={0.88} color="#fff8e4" />
+
+      {/* Primary directional — warm golden sunlight from upper-right */}
       <directionalLight
-        position={[8, 14, 4]}
-        intensity={0.7}
+        position={[7, 12, 4]}
+        intensity={1.30}
+        color="#ffd070"
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
+
+      {/* Soft fill — cool lavender bounce from opposite side */}
+      <directionalLight
+        position={[-5, 4, -6]}
+        intensity={0.30}
+        color="#d0c8f8"
+      />
+
       <ContactShadows
-        position={[0, -0.05, 0]}
-        opacity={0.22}
-        scale={24}
-        blur={2}
+        position={[0, -0.01, 0]}
+        opacity={0.28}
+        scale={28}
+        blur={2.2}
         far={2}
       />
+
+      {/* Floating garden island — grassy base platform */}
+      <mesh position={[0, -0.10, 0]} receiveShadow>
+        <boxGeometry args={[islandW, 0.20, islandD]} />
+        <meshLambertMaterial color="#56904a" />
+      </mesh>
+      {/* Grass top accent */}
+      <mesh position={[0, 0.001, 0]}>
+        <boxGeometry args={[islandW, 0.001, islandD]} />
+        <meshLambertMaterial color="#68a85a" />
+      </mesh>
 
       <group>{items}</group>
     </>
@@ -109,11 +135,9 @@ export default function Garden({ session, tilesVersion, onTileClick }) {
     const startDate = `${year}-${mm}-01`
     const endDate   = `${year}-${mm}-${String(daysInMonth).padStart(2, '0')}`
 
-    // Use local-time boundaries so sessions near midnight are assigned to the correct local day
     const sessionRangeStart = new Date(year, month, 1, 0, 0, 0).toISOString()
-    const sessionRangeEnd   = new Date(year, month + 1, 1, 0, 0, 0).toISOString()  // JS handles Dec→Jan
+    const sessionRangeEnd   = new Date(year, month + 1, 1, 0, 0, 0).toISOString()
 
-    // Fetch tiles and sessions for the month concurrently
     const [{ data: tilesData }, { data: sessionsData }] = await Promise.all([
       supabase
         .from('tiles')
@@ -130,7 +154,6 @@ export default function Garden({ session, tilesVersion, onTileClick }) {
         .lt('created_at', sessionRangeEnd),
     ])
 
-    // Build per-day category breakdown for hover cards using LOCAL date (not UTC)
     const map = {}
     sessionsData?.forEach(s => {
       const dt      = new Date(s.created_at)
@@ -150,19 +173,21 @@ export default function Garden({ session, tilesVersion, onTileClick }) {
   }, [fetchData, tilesVersion])
 
   return (
-    <Canvas
-      shadows
-      gl={{ antialias: true }}
-      style={{ width: '100%', height: '100%', background: '#f0f4f8' }}
-    >
-      {monthInfo && (
-        <GardenScene
-          tiles={tiles}
-          breakdownMap={breakdownMap}
-          onTileClick={onTileClick}
-          {...monthInfo}
-        />
-      )}
-    </Canvas>
+    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(170deg, #fef8ee 0%, #ddeee0 100%)' }}>
+      <Canvas
+        shadows
+        gl={{ antialias: true, alpha: true }}
+        style={{ width: '100%', height: '100%' }}
+      >
+        {monthInfo && (
+          <GardenScene
+            tiles={tiles}
+            breakdownMap={breakdownMap}
+            onTileClick={onTileClick}
+            {...monthInfo}
+          />
+        )}
+      </Canvas>
+    </div>
   )
 }
