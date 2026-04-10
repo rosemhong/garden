@@ -10,31 +10,31 @@ const SPACING = 1.04
 // ─── Season theme ──────────────────────────────────────────────────────────
 const THEMES = {
   spring: {
-    bg:      'linear-gradient(170deg, #fef7ee 0%, #ebe0d0 100%)',
+    bg:      'linear-gradient(170deg, #f8f5ee 0%, #e4dece 100%)',
     grass:   '#92a870',
-    ambient: '#fff4d0',
-    sun:     '#ffc84a',
-    fog:     '#f4e8d8',
+    ambient: '#fff8ee',
+    sun:     '#ffe090',
+    fog:     '#eeeae0',
   },
   summer: {
-    bg:      'linear-gradient(170deg, #fef8ec 0%, #e8e8cc 100%)',
+    bg:      'linear-gradient(170deg, #f6f5ec 0%, #e2e0cc 100%)',
     grass:   '#8aaa78',
-    ambient: '#fff6d8',
-    sun:     '#ffc840',
-    fog:     '#f0ead4',
+    ambient: '#fef8ec',
+    sun:     '#ffe8a0',
+    fog:     '#eaeadc',
   },
   autumn: {
-    bg:      'linear-gradient(170deg, #fef4e8 0%, #e8e0cc 100%)',
+    bg:      'linear-gradient(170deg, #f8f4ec 0%, #e8e0c8 100%)',
     grass:   '#8e9e62',
-    ambient: '#fff0d0',
-    sun:     '#ffc04a',
-    fog:     '#f0e8d8',
+    ambient: '#fff6e8',
+    sun:     '#ffe098',
+    fog:     '#eee6d8',
   },
   winter: {
     bg:      'linear-gradient(170deg, #f0f4f8 0%, #dce8f0 100%)',
     grass:   '#a0b8c8',
-    ambient: '#e8f0f8',
-    sun:     '#d8e8f4',
+    ambient: '#eef2f8',
+    sun:     '#f4f8ff',
     fog:     '#dce8f4',
   },
 }
@@ -105,31 +105,29 @@ function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay, 
       <CameraInit />
       <fog attach="fog" args={[THEME.fog, 28, 55]} />
 
-      <ambientLight intensity={0.68} color={THEME.ambient} />
+      <ambientLight intensity={0.70} color={THEME.ambient} />
 
-      {/* Golden hour: low-angle sun, warm and strong, crisper shadows */}
       <directionalLight
         position={[12, 6, 4]}
-        intensity={1.85}
+        intensity={1.55}
         color={THEME.sun}
         castShadow
         shadow-mapSize={[2048, 2048]}
       />
 
-      {/* Warm point light — sunset glow */}
+      {/* Subtle warm fill — low intensity so it doesn't tint aggressively */}
       <pointLight
         position={[3, 3, -5]}
-        intensity={0.55}
-        color={SEASON === 'winter' ? '#b0d0e8' : '#ffb060'}
+        intensity={0.28}
+        color={SEASON === 'winter' ? '#c8dff0' : '#ffd080'}
         distance={20}
         decay={2}
       />
 
-      {/* Soft fill from opposite side */}
       <directionalLight
         position={[-5, 4, -6]}
         intensity={0.28}
-        color={SEASON === 'winter' ? '#c8d8f0' : '#d0c8f8'}
+        color="#eeeeee"
       />
 
       <ContactShadows position={[0, 0.01, 0]} opacity={0.45} scale={28} blur={2.5} far={3.0} />

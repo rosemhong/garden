@@ -46,8 +46,6 @@ export default function Timer({ session, onSessionComplete }) {
     const elapsed = seconds
     setSeconds(0)
     setStatus('idle')
-    if (elapsed < 10) return
-
     setSaving(true)
     try {
       // Use local calendar date so sessions always land on today's tile regardless of timezone

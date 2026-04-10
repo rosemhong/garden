@@ -18,19 +18,57 @@ function fmtSecs(s) {
   return `${m}m`
 }
 
-// L0 = warm dirt. L1–L3 = progressively lush green.
+// L0 = warm-neutral dirt. L1–L3 = progressively lush green.
 const GROUND = [
-  { side: '#887c72' },  // 0 — bare dirt, muted grey-brown
-  { side: '#8aaa6e' },  // 1 — fresh sage
-  { side: '#7a9e5e' },  // 2 — garden green
-  { side: '#6a9050' },  // 3 — lush deep green
+  { side: '#887470' },  // 0 — dirt: neutral brown, hint of warmth
+  { side: '#88ac7c' },  // 1 — sage green
+  { side: '#7aa46e' },  // 2 — garden green
+  { side: '#6e9462' },  // 3 — deep lush green
 ]
 const GROUND_TODAY = [
-  { side: '#948880' },  // 0 — dirt, today highlight
-  { side: '#98b87c' },  // 1
-  { side: '#88ac6c' },  // 2
-  { side: '#789e5c' },  // 3
+  { side: '#96827e' },  // 0 — dirt today: lighter
+  { side: '#96b888' },  // 1
+  { side: '#86b07a' },  // 2
+  { side: '#7aa070' },  // 3
 ]
+
+// ─── Tile pebbles ──────────────────────────────────────────────────────────
+function lcg(n) { return ((n * 1664525 + 1013904223) >>> 0) }
+
+const PEBBLE_COLS = ['#929292', '#868686', '#9e9e9e', '#7e7e7e', '#aaaaaa']
+
+function TilePebbles({ tileH, index }) {
+  const stones = useMemo(() => {
+    let s = (index + 1) * 7919
+    s = lcg(s)
+    if (s % 100 < 45) return []           // ~45% of tiles stay bare
+    s = lcg(s)
+    const count = 1 + (s % 3)             // 1–3 stones
+    const out = []
+    for (let i = 0; i < count; i++) {
+      s = lcg(s); const px  = (s / 0xFFFFFFFF - 0.5) * 0.62
+      s = lcg(s); const pz  = (s / 0xFFFFFFFF - 0.5) * 0.62
+      s = lcg(s); const sc  = 0.040 + (s / 0xFFFFFFFF) * 0.042  // 0.04–0.082
+      s = lcg(s); const ry  = (s / 0xFFFFFFFF) * Math.PI * 2
+      s = lcg(s); const col = PEBBLE_COLS[s % PEBBLE_COLS.length]
+      out.push({ px, pz, sc, ry, col })
+    }
+    return out
+  }, [index])
+
+  if (stones.length === 0) return null
+
+  return (
+    <group>
+      {stones.map((p, i) => (
+        <mesh key={i} position={[p.px, tileH + p.sc * 0.4, p.pz]} rotation={[0.3, p.ry, 0.15]} scale={[p.sc, p.sc * 0.62, p.sc]}>
+          <dodecahedronGeometry args={[1, 0]} />
+          <meshLambertMaterial color={p.col} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
 
 export default function Tile({
   position, dayNumber, date, growthLevel,
@@ -71,8 +109,8 @@ export default function Tile({
   useFrame(({ clock }) => {
     if (!plantRef.current || growthLevel === 0) return
     const t = clock.elapsedTime
-    plantRef.current.rotation.z = Math.sin(t * 0.55 + swayOffset) * 0.030
-    plantRef.current.rotation.x = Math.cos(t * 0.40 + swayOffset) * 0.018
+    plantRef.current.rotation.z = Math.sin(t * 0.55 + swayOffset) * 0.055
+    plantRef.current.rotation.x = Math.cos(t * 0.40 + swayOffset) * 0.035
   })
 
   if (isGhost) return null
@@ -111,6 +149,8 @@ export default function Tile({
         >
           <meshLambertMaterial color={colors.side} />
         </RoundedBox>
+
+        {growthLevel === 0 && <TilePebbles tileH={tileH} index={index} />}
 
         {growthLevel > 0 && (
           <animated.group scale={plantScale}>
