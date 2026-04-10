@@ -371,13 +371,34 @@ function ProceduralL2() {
   const p = PAL[SEASON]
   return <Bush {...p.bush} />
 }
-function ProceduralL3({ seed }) {
-  if (SEASON === 'winter') return <WinterTree />
+const L3_SPOTS = [
+  { dx:  0.00, dz:  0.00, rot: 0,    sc: 1.00 },
+  { dx: -0.22, dz:  0.13, rot: 2.10, sc: 0.72 },
+  { dx:  0.19, dz: -0.18, rot: 3.80, sc: 0.78 },
+]
+
+function ProceduralL3() {
+  if (SEASON === 'winter') {
+    return (
+      <group>
+        {L3_SPOTS.map((o, i) => (
+          <group key={i} position={[o.dx, 0, o.dz]} rotation={[0, o.rot, 0]} scale={o.sc}>
+            <WinterTree />
+          </group>
+        ))}
+      </group>
+    )
+  }
   const p = PAL[SEASON]
-  // Slight canopy colour variation by seed
-  const shift = (seed % 3) * 0.04
-  const canopy = p.tree.canopy.map(c => c)
-  return <Tree trunk={p.tree.trunk} canopy={canopy} accent={p.tree.accent} />
+  return (
+    <group>
+      {L3_SPOTS.map((o, i) => (
+        <group key={i} position={[o.dx, 0, o.dz]} rotation={[0, o.rot, 0]} scale={o.sc}>
+          <Tree trunk={p.tree.trunk} canopy={p.tree.canopy} accent={p.tree.accent} />
+        </group>
+      ))}
+    </group>
+  )
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────

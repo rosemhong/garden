@@ -47,7 +47,7 @@ export default function Tile({
   // Deterministic per-tile variation — organic, hand-placed look
   const { tileRot, tileH, plantRot } = useMemo(() => ({
     tileRot:  (((index * 7919) % 100) / 100 - 0.5) * 0.05,
-    tileH:    0.20 + ((index * 6271) % 100 / 100) * 0.03,
+    tileH:    0.22 + ((index * 6271) % 100 / 100) * 0.10,
     // Each plant faces a slightly different direction — no two look grid-aligned
     plantRot: ((dayNumber || 1) * 2.618) % (Math.PI * 2),
   }), [index, dayNumber])
@@ -102,8 +102,8 @@ export default function Tile({
 
         {/* Organic rounded dirt patch */}
         <RoundedBox
-          args={[0.90, tileH, 0.90]}
-          radius={0.07}
+          args={[0.96, tileH, 0.96]}
+          radius={0.08}
           smoothness={3}
           position={[0, tileH / 2, 0]}
           rotation={[0, tileRot, 0]}
@@ -116,7 +116,7 @@ export default function Tile({
 
         {/* Top-face accent: lighter shade of same growth colour */}
         <mesh position={[0, tileH + 0.001, 0]} rotation={[0, tileRot, 0]}>
-          <boxGeometry args={[0.84, 0.001, 0.84]} />
+          <boxGeometry args={[0.90, 0.001, 0.90]} />
           <meshLambertMaterial color={colors.top} />
         </mesh>
 
