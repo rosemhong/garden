@@ -19,7 +19,7 @@ function CameraInit() {
   return null
 }
 
-function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay }) {
+function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay, onTileClick }) {
   // Pad the end so the grid always fills complete 7-column rows
   const rawSlots   = startDay + daysInMonth
   const totalSlots = Math.ceil(rawSlots / 7) * 7
@@ -57,6 +57,7 @@ function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay }
         isGhost={isGhost}
         isToday={!isGhost && dayNumber === todayDay}
         dayData={dateStr ? breakdownMap[dateStr] : null}
+        onTileClick={onTileClick}
       />
     )
   }
@@ -92,7 +93,7 @@ function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay }
   )
 }
 
-export default function Garden({ session, tilesVersion }) {
+export default function Garden({ session, tilesVersion, onTileClick }) {
   const [tiles,        setTiles]        = useState([])
   const [breakdownMap, setBreakdownMap] = useState({})
   const [monthInfo,    setMonthInfo]    = useState(null)
@@ -158,6 +159,7 @@ export default function Garden({ session, tilesVersion }) {
         <GardenScene
           tiles={tiles}
           breakdownMap={breakdownMap}
+          onTileClick={onTileClick}
           {...monthInfo}
         />
       )}
