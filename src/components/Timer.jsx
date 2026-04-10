@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-const CATEGORIES = ['focus', 'study', 'creative', 'reading', 'exercise']
+const CATEGORIES = ['Coding', 'System Design', 'Behavioral']
 
 function calcGrowthLevel(totalSeconds) {
-  if (totalSeconds > 5400) return 3  // 1.5 h → Bloom
-  if (totalSeconds > 3600) return 2  // 1 h   → Plant
-  if (totalSeconds > 900)  return 1  // 15 m  → Sprout
+  if (totalSeconds > 5400) return 3  // 1.5h → Bloom
+  if (totalSeconds > 3600) return 2  // 1h   → Plant
+  if (totalSeconds > 900)  return 1  // 15m  → Sprout
   return 0
 }
 
@@ -17,7 +17,7 @@ function fmt(s) {
 export default function Timer({ session, onSessionComplete }) {
   const [status,   setStatus]   = useState('idle')   // idle | running | paused
   const [seconds,  setSeconds]  = useState(0)
-  const [category, setCategory] = useState('focus')
+  const [category, setCategory] = useState('Coding')
   const [saving,   setSaving]   = useState(false)
   const intervalRef = useRef(null)
 
@@ -36,25 +36,30 @@ export default function Timer({ session, onSessionComplete }) {
     intervalRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
   }
 
+  // Dev shortcut: inject 15 min instantly
+  function addDevTime() {
+    setSeconds(s => s + 900)
+  }
+
   async function stop() {
     clearInterval(intervalRef.current)
     const elapsed = seconds
     setSeconds(0)
     setStatus('idle')
-    if (elapsed < 10) return   // discard accidental taps
+    if (elapsed < 10) return
 
     setSaving(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
+      // Use local calendar date so sessions always land on today's tile regardless of timezone
+      const d     = new Date()
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
-      // 1. Record the raw session
       await supabase.from('sessions').insert({
         user_id:          session.user.id,
         duration_seconds: elapsed,
         category,
       })
 
-      // 2. Read today's running total (if any)
       const { data: existing } = await supabase
         .from('tiles')
         .select('total_seconds')
@@ -64,13 +69,12 @@ export default function Timer({ session, onSessionComplete }) {
 
       const newTotal = (existing?.total_seconds ?? 0) + elapsed
 
-      // 3. Upsert tile — requires unique(user_id, date) constraint in DB
       await supabase.from('tiles').upsert(
         {
-          user_id:      session.user.id,
-          date:         today,
+          user_id:       session.user.id,
+          date:          today,
           total_seconds: newTotal,
-          growth_level: calcGrowthLevel(newTotal),
+          growth_level:  calcGrowthLevel(newTotal),
         },
         { onConflict: 'user_id,date' }
       )
@@ -83,6 +87,7 @@ export default function Timer({ session, onSessionComplete }) {
 
   const isRunning = status === 'running'
   const isIdle    = status === 'idle'
+  const isActive  = status === 'running' || status === 'paused'
 
   return (
     <div style={s.panel}>
@@ -114,6 +119,12 @@ export default function Timer({ session, onSessionComplete }) {
             </button>
             <button onClick={stop} style={s.doneBtn}>Done</button>
           </div>
+          {/* Dev helper — visible only during active session */}
+          {isActive && (
+            <button onClick={addDevTime} style={s.devBtn} title="Add 15 minutes (dev only)">
+              +15m (Dev)
+            </button>
+          )}
         </>
       )}
     </div>
@@ -122,22 +133,22 @@ export default function Timer({ session, onSessionComplete }) {
 
 const s = {
   panel: {
-    position:          'fixed',
-    bottom:            32,
-    left:              '50%',
-    transform:         'translateX(-50%)',
-    background:        'rgba(255,255,255,0.88)',
-    backdropFilter:    'blur(16px)',
+    position:             'fixed',
+    bottom:               32,
+    left:                 '50%',
+    transform:            'translateX(-50%)',
+    background:           'rgba(255,255,255,0.88)',
+    backdropFilter:       'blur(16px)',
     WebkitBackdropFilter: 'blur(16px)',
-    borderRadius:      18,
-    padding:           '20px 28px',
-    boxShadow:         '0 4px 32px rgba(0,0,0,0.09)',
-    display:           'flex',
-    flexDirection:     'column',
-    alignItems:        'center',
-    gap:               12,
-    minWidth:          190,
-    zIndex:            100,
+    borderRadius:         18,
+    padding:              '20px 28px',
+    boxShadow:            '0 4px 32px rgba(0,0,0,0.09)',
+    display:              'flex',
+    flexDirection:        'column',
+    alignItems:           'center',
+    gap:                  12,
+    minWidth:             190,
+    zIndex:               100,
   },
   display: {
     fontSize:           44,
@@ -148,24 +159,24 @@ const s = {
     lineHeight:         1,
   },
   label: {
-    fontSize:        11,
-    letterSpacing:   '0.14em',
-    textTransform:   'uppercase',
-    color:           '#a0aec0',
+    fontSize:      11,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    color:         '#a0aec0',
   },
   row: {
     display: 'flex',
     gap:     8,
   },
   startBtn: {
-    background:   '#6aab8e',
-    color:        '#fff',
-    border:       'none',
-    borderRadius: 11,
-    padding:      '10px 24px',
-    fontSize:     14,
-    fontWeight:   600,
-    cursor:       'pointer',
+    background:    '#6aab8e',
+    color:         '#fff',
+    border:        'none',
+    borderRadius:  11,
+    padding:       '10px 24px',
+    fontSize:      14,
+    fontWeight:    600,
+    cursor:        'pointer',
     letterSpacing: '0.02em',
   },
   secondaryBtn: {
@@ -198,5 +209,15 @@ const s = {
     outline:      'none',
     cursor:       'pointer',
     width:        '100%',
+  },
+  devBtn: {
+    background:    'none',
+    border:        '1px dashed #cbd5e0',
+    borderRadius:  6,
+    padding:       '3px 10px',
+    fontSize:      11,
+    color:         '#a0aec0',
+    cursor:        'pointer',
+    letterSpacing: '0.04em',
   },
 }

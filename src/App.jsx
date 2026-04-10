@@ -3,14 +3,15 @@ import { supabase } from './lib/supabaseClient'
 import Auth from './components/Auth'
 import Garden from './components/Garden'
 import Timer from './components/Timer'
+import SessionPanel from './components/SessionPanel'
 
 export default function App() {
   const [session,      setSession]      = useState(null)
   const [loading,      setLoading]      = useState(true)
-  const [tilesVersion, setTilesVersion] = useState(0)
+  // Increment to force Garden + SessionPanel to refetch after any write
+  const [dataVersion,  setDataVersion]  = useState(0)
 
   useEffect(() => {
-    // Hydrate session on mount (also catches magic-link redirects via URL hash)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
@@ -26,7 +27,7 @@ export default function App() {
   if (loading) {
     return (
       <div style={s.loading}>
-        <span style={s.loadingDot}>·  ·  ·</span>
+        <span style={s.dot}>·  ·  ·</span>
       </div>
     )
   }
@@ -38,26 +39,28 @@ export default function App() {
     year:  'numeric',
   })
 
+  function bump() { setDataVersion(v => v + 1) }
+
   return (
     <div style={s.root}>
-      <Garden
+      {/* Full-screen 3D canvas */}
+      <Garden session={session} tilesVersion={dataVersion} />
+
+      {/* Focus timer — bottom center */}
+      <Timer session={session} onSessionComplete={bump} />
+
+      {/* Session history drawer + toggle */}
+      <SessionPanel
         session={session}
-        tilesVersion={tilesVersion}
+        sessionsVersion={dataVersion}
+        onUpdate={bump}
       />
 
-      <Timer
-        session={session}
-        onSessionComplete={() => setTilesVersion(v => v + 1)}
-      />
-
-      {/* Month label — centered top */}
+      {/* Month label — top center */}
       <div style={s.monthLabel}>{monthLabel}</div>
 
-      {/* Sign-out — top right */}
-      <button
-        onClick={() => supabase.auth.signOut()}
-        style={s.signOut}
-      >
+      {/* Sign out — top right */}
+      <button onClick={() => supabase.auth.signOut()} style={s.signOut}>
         Sign out
       </button>
     </div>
@@ -72,14 +75,14 @@ const s = {
     overflow: 'hidden',
   },
   loading: {
-    width:           '100vw',
-    height:          '100vh',
-    background:      '#f0f4f8',
-    display:         'flex',
-    alignItems:      'center',
-    justifyContent:  'center',
+    width:          '100vw',
+    height:         '100vh',
+    background:     '#f0f4f8',
+    display:        'flex',
+    alignItems:     'center',
+    justifyContent: 'center',
   },
-  loadingDot: {
+  dot: {
     fontSize:      22,
     color:         '#b0bec5',
     letterSpacing: '4px',
@@ -98,18 +101,18 @@ const s = {
     userSelect:    'none',
   },
   signOut: {
-    position:     'fixed',
-    top:          14,
-    right:        18,
-    background:   'rgba(255,255,255,0.72)',
-    border:       'none',
-    borderRadius: 8,
-    padding:      '6px 12px',
-    fontSize:     12,
-    color:        '#8fa8be',
-    cursor:       'pointer',
-    fontWeight:   500,
-    backdropFilter: 'blur(8px)',
+    position:             'fixed',
+    top:                  14,
+    right:                18,
+    background:           'rgba(255,255,255,0.72)',
+    border:               'none',
+    borderRadius:         8,
+    padding:              '6px 12px',
+    fontSize:             12,
+    color:                '#8fa8be',
+    cursor:               'pointer',
+    fontWeight:           500,
+    backdropFilter:       'blur(8px)',
     WebkitBackdropFilter: 'blur(8px)',
   },
 }

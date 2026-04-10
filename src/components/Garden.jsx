@@ -6,8 +6,7 @@ import Tile from './Tile'
 
 const SPACING = 1.15
 
-// Runs once on the first animation frame to orient the camera at origin.
-// Must live inside <Canvas> to access the R3F context.
+// Orients the orthographic camera toward origin on the first animation frame.
 function CameraInit() {
   const done = useRef(false)
   useFrame(({ camera }) => {
@@ -20,12 +19,14 @@ function CameraInit() {
   return null
 }
 
-function GardenScene({ tiles, year, month, daysInMonth, startDay }) {
-  const totalSlots = startDay + daysInMonth
-  const numRows    = Math.ceil(totalSlots / 7)
+function GardenScene({ tiles, breakdownMap, year, month, daysInMonth, startDay }) {
+  // Pad the end so the grid always fills complete 7-column rows
+  const rawSlots   = startDay + daysInMonth
+  const totalSlots = Math.ceil(rawSlots / 7) * 7
+  const numRows    = totalSlots / 7
   const todayDay   = new Date().getDate()
+  const mm         = String(month + 1).padStart(2, '0')
 
-  // Build a map of dayNumber → tile row
   const tileMap = {}
   tiles.forEach(t => {
     const day = parseInt(t.date.split('-')[2], 10)
@@ -34,13 +35,16 @@ function GardenScene({ tiles, year, month, daysInMonth, startDay }) {
 
   const items = []
   for (let i = 0; i < totalSlots; i++) {
-    const col      = i % 7
-    const row      = Math.floor(i / 7)
-    const x        = (col - 3) * SPACING
-    const z        = (row - (numRows - 1) / 2) * SPACING
-    const isGhost  = i < startDay
+    const col       = i % 7
+    const row       = Math.floor(i / 7)
+    const x         = (col - 3) * SPACING
+    const z         = (row - (numRows - 1) / 2) * SPACING
+    const isGhost   = i < startDay || i >= startDay + daysInMonth
     const dayNumber = isGhost ? 0 : i - startDay + 1
-    const tileData = dayNumber > 0 ? tileMap[dayNumber] : null
+    const tileData  = dayNumber > 0 ? tileMap[dayNumber] : null
+    const dateStr   = dayNumber > 0
+      ? `${year}-${mm}-${String(dayNumber).padStart(2, '0')}`
+      : null
 
     items.push(
       <Tile
@@ -48,9 +52,11 @@ function GardenScene({ tiles, year, month, daysInMonth, startDay }) {
         index={i}
         position={[x, 0, z]}
         dayNumber={dayNumber}
+        date={dateStr}
         growthLevel={tileData?.growth_level ?? 0}
         isGhost={isGhost}
         isToday={!isGhost && dayNumber === todayDay}
+        dayData={dateStr ? breakdownMap[dateStr] : null}
       />
     )
   }
@@ -73,7 +79,6 @@ function GardenScene({ tiles, year, month, daysInMonth, startDay }) {
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
-
       <ContactShadows
         position={[0, -0.05, 0]}
         opacity={0.22}
@@ -88,35 +93,60 @@ function GardenScene({ tiles, year, month, daysInMonth, startDay }) {
 }
 
 export default function Garden({ session, tilesVersion }) {
-  const [tiles, setTiles]         = useState([])
-  const [monthInfo, setMonthInfo] = useState(null)
+  const [tiles,        setTiles]        = useState([])
+  const [breakdownMap, setBreakdownMap] = useState({})
+  const [monthInfo,    setMonthInfo]    = useState(null)
 
-  const fetchTiles = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     const now         = new Date()
     const year        = now.getFullYear()
     const month       = now.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const startDay    = new Date(year, month, 1).getDay() // 0 = Sunday
+    const startDay    = new Date(year, month, 1).getDay() // 0 = Sun
 
     const mm        = String(month + 1).padStart(2, '0')
-    const dd        = String(daysInMonth).padStart(2, '0')
     const startDate = `${year}-${mm}-01`
-    const endDate   = `${year}-${mm}-${dd}`
+    const endDate   = `${year}-${mm}-${String(daysInMonth).padStart(2, '0')}`
 
-    const { data } = await supabase
-      .from('tiles')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .gte('date', startDate)
-      .lte('date', endDate)
+    // Use local-time boundaries so sessions near midnight are assigned to the correct local day
+    const sessionRangeStart = new Date(year, month, 1, 0, 0, 0).toISOString()
+    const sessionRangeEnd   = new Date(year, month + 1, 1, 0, 0, 0).toISOString()  // JS handles Dec→Jan
 
-    setTiles(data || [])
+    // Fetch tiles and sessions for the month concurrently
+    const [{ data: tilesData }, { data: sessionsData }] = await Promise.all([
+      supabase
+        .from('tiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .gte('date', startDate)
+        .lte('date', endDate),
+
+      supabase
+        .from('sessions')
+        .select('created_at, duration_seconds, category')
+        .eq('user_id', session.user.id)
+        .gte('created_at', sessionRangeStart)
+        .lt('created_at', sessionRangeEnd),
+    ])
+
+    // Build per-day category breakdown for hover cards using LOCAL date (not UTC)
+    const map = {}
+    sessionsData?.forEach(s => {
+      const dt      = new Date(s.created_at)
+      const dateStr = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
+      if (!map[dateStr]) map[dateStr] = {}
+      const cat = s.category || 'Coding'
+      map[dateStr][cat] = (map[dateStr][cat] || 0) + s.duration_seconds
+    })
+
+    setTiles(tilesData || [])
+    setBreakdownMap(map)
     setMonthInfo({ year, month, daysInMonth, startDay })
   }, [session.user.id])
 
   useEffect(() => {
-    fetchTiles()
-  }, [fetchTiles, tilesVersion])
+    fetchData()
+  }, [fetchData, tilesVersion])
 
   return (
     <Canvas
@@ -124,7 +154,13 @@ export default function Garden({ session, tilesVersion }) {
       gl={{ antialias: true }}
       style={{ width: '100%', height: '100%', background: '#f0f4f8' }}
     >
-      {monthInfo && <GardenScene tiles={tiles} {...monthInfo} />}
+      {monthInfo && (
+        <GardenScene
+          tiles={tiles}
+          breakdownMap={breakdownMap}
+          {...monthInfo}
+        />
+      )}
     </Canvas>
   )
 }
